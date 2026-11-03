@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,6 +35,7 @@ import java.util.Locale
 val Amber = Color(0xFFFFB642)
 private val Mono = TextStyle(fontFamily = FontFamily.Monospace, color = Amber, fontSize = 14.sp)
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SpikeScreen(
     ui: SpikeUi,
@@ -60,7 +63,11 @@ fun SpikeScreen(
             if (colors == null) Line("colors: -")
             colors?.forEach { (name, c) -> Swatch(name, c) }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // FlowRow: the Thor's bottom panel is ~450 dp wide, too narrow for four buttons in one row.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             AmberButton("Equip first weapon", onEquip)
             AmberButton("Dump world", onDumpWorld)
             AmberButton("Focus mode ${if (focusOn) "on" else "off"}", onToggleFocus)

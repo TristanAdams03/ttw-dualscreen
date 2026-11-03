@@ -135,7 +135,8 @@ class SpikeClient(
         }
     }
 
-    private fun handle(text: String) {
+    /** Handles one server text frame. Any `welcome` (solicited or not) replaces the shown one. Internal for tests. */
+    internal fun handle(text: String) {
         val now = clock()
         when (val m = parseServer(text)) {
             is ServerMsg.Welcome -> {
