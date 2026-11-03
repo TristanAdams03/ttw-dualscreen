@@ -12,7 +12,12 @@ Setup used: TTW through GameNative. The game folder is mapped as `A:\`.
 3. Download `TTWDualScreen-Plugin-v0.0.1-spike.zip`.
 4. Download `TTWDualScreen-v0.0.1-spike.apk`.
 5. Unzip the plugin zip.
-6. Copy the `Data` folder from the zip into your TTW game folder (the one GameNative maps as `A:\`).
+6. Copy the `Data` folder from the zip into your TTW game folder.
+   - That is the Fallout New Vegas / TTW folder you copied onto the Thor's storage.
+   - It is the folder you picked when you added the game in GameNative with "+". GameNative shows it as `A:\`.
+   - Open it with the Thor's Files app.
+   - Go into `Data`, then `NVSE`, then `Plugins`.
+   - If `Plugins` does not exist, create it.
 7. Say yes to merge. Do not replace anything else.
 8. Check that this file now exists: `Data\NVSE\Plugins\ttw_dualscreen.dll`
 9. Check that this file exists too: `Data\NVSE\Plugins\ttw_dualscreen.ini`
@@ -43,15 +48,19 @@ Do this routine each time ("the touch test"):
 19. Touch test #1: Focus mode ON (the default). Record it.
 20. In the app, turn Focus mode OFF. Touch test #2. Record it.
 21. Turn Focus mode back ON.
-22. Open the AYN quick settings drawer. Turn on Focus Lock. Touch test #3. Record it.
-23. Close the game.
+22. Open the AYN quick settings drawer. Set Focus Lock to **Top screen**.
+    Focus mode in the app stays ON. Run touch test #3 and record it.
+23. In GameNative, exit the game (or long-press GameNative, App info, Force stop).
 24. Open the container's `Fallout.ini`:
     `C:\users\xuser\Documents\My Games\FalloutNV\Fallout.ini`
     (use the container's file explorer in GameNative).
 25. Edit this one. A second copy may exist in the game folder's `config` folder. Ignore that one.
 26. Under `[General]`, add the line `bAlwaysActive=1`
-27. Save the file. Launch the game and load your save.
-28. Touch test #4. Record it.
+27. Save the file.
+    Open the AYN quick settings drawer and turn Focus Lock back off.
+    Check Focus mode in the app is ON.
+    Launch the game and load your save.
+28. Touch test #4 (Focus Lock OFF, Focus mode ON, `bAlwaysActive=1`). Record it.
 
 ## D. Equip and world dump
 
@@ -73,6 +82,7 @@ If it is refused, the app shows why: "in menu", "loading", "menu state unreadabl
 37. Also paste both log files:
     - `Data\NVSE\Plugins\ttw_dualscreen.log`
     - `Data\NVSE\Plugins\ttw_dualscreen.log.1` (the previous run)
+    - If a log is long, attach the file instead of pasting.
 38. Paste your filled-in results template too.
 
 ## If the banner says SOCKET DEAD
@@ -107,8 +117,8 @@ First run (step 15-18)
 Touch test (banner state / fps / controller still works)
   #1 Focus mode ON:          ___ / ___ / yes / no
   #2 Focus mode OFF:         ___ / ___ / yes / no
-  #3 AYN Focus Lock on:      ___ / ___ / yes / no
-  #4 bAlwaysActive=1:        ___ / ___ / yes / no
+  #3 Focus Lock = Top screen:      ___ / ___ / yes / no
+  #4 bAlwaysActive=1, Focus Lock off:      ___ / ___ / yes / no
 
 Equip first weapon (result or error text)
   Capital Wasteland exterior:

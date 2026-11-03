@@ -78,7 +78,7 @@ jobs:
           body: |
             Spike pre-release. Not for general use.
 
-            Follow the device checklist: https://github.com/TristanAdams03/ttw-dualscreen/blob/m0-spike/docs/spike/CHECKLIST.md
+            Follow the device checklist: https://github.com/TristanAdams03/ttw-dualscreen/blob/${{ github.ref_name }}/docs/spike/CHECKLIST.md
 
             - `TTWDualScreen-Plugin-${{ github.ref_name }}.zip`: unzip into the TTW game folder.
             - `TTWDualScreen-${{ github.ref_name }}.apk`: install on the Thor.
