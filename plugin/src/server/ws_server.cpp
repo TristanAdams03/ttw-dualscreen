@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <iterator>
 
 #include "net/ws_frame.h"
 #include "net/ws_handshake.h"
@@ -19,6 +20,9 @@ constexpr auto kHandshakeTimeout = std::chrono::seconds(5);
 constexpr auto kLingerTimeout = std::chrono::seconds(2);
 constexpr size_t kMaxMessage = 1 << 20;
 constexpr long kSelectUsec = 50 * 1000;
+constexpr size_t kOutLowWater = 64 * 1024;       // pull queued frames only below this
+constexpr size_t kOutHardCap = 2 * 1024 * 1024;  // beyond this the client is closed (1008)
+constexpr auto kWriteStallTimeout = std::chrono::seconds(5);
 
 constexpr uint8_t kOpCont = 0x0, kOpText = 0x1, kOpBin = 0x2, kOpClose = 0x8, kOpPing = 0x9,
                   kOpPong = 0xA;
@@ -35,9 +39,20 @@ std::string closePayload(uint16_t code) {
     return p;
 }
 
-void setNonBlocking(SOCKET s) {
+bool setNonBlocking(SOCKET s) {
     u_long on = 1;
-    ioctlsocket(s, FIONBIO, &on);
+    return ioctlsocket(s, FIONBIO, &on) == 0;
+}
+
+// The game may spawn processes; never let them inherit our sockets.
+void noInherit(SOCKET s) { SetHandleInformation(reinterpret_cast<HANDLE>(s), HANDLE_FLAG_INHERIT, 0); }
+
+SOCKET makeListenSocket() {
+    SOCKET s = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_NO_HANDLE_INHERIT);
+    if (s == INVALID_SOCKET)  // flag unsupported (pre-7 SP1 or an old Wine): fall back
+        s = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (s != INVALID_SOCKET) noInherit(s);
+    return s;
 }
 }  // namespace
 
@@ -52,6 +67,7 @@ struct WsServer::Client {
     bool shutSent = false;
     bool dead = false;
     Clock::time_point since = Clock::now();  // accept time, or start of closing
+    Clock::time_point lastWrite = Clock::now();  // last send progress, or last time out was empty
 
     // Guarded by WsServer::clientsMx_.
     bool open = false;  // handshaken and not closing: eligible for sendToAll/subscription
@@ -73,7 +89,7 @@ bool WsServer::start(const std::string& bind, uint16_t port, proto::ServerInfo i
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) return false;
     wsaStarted_ = true;
 
-    SOCKET ls = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    SOCKET ls = makeListenSocket();
     if (ls == INVALID_SOCKET) {
         stop();
         return false;
@@ -86,7 +102,7 @@ bool WsServer::start(const std::string& bind, uint16_t port, proto::ServerInfo i
     sa.sin_port = htons(port);
     int salen = sizeof sa;
     if (::bind(ls, reinterpret_cast<sockaddr*>(&sa), sizeof sa) != 0 || ::listen(ls, 8) != 0 ||
-        getsockname(ls, reinterpret_cast<sockaddr*>(&sa), &salen) != 0) {
+        getsockname(ls, reinterpret_cast<sockaddr*>(&sa), &salen) != 0 || !setNonBlocking(ls)) {
         closesocket(ls);
         stop();
         return false;
@@ -102,12 +118,13 @@ bool WsServer::start(const std::string& bind, uint16_t port, proto::ServerInfo i
 void WsServer::stop() {
     stop_ = true;
     if (thread_.joinable()) thread_.join();
+    std::vector<std::unique_ptr<Client>> gone;
     {
         std::lock_guard<std::mutex> lk(clientsMx_);
-        for (auto& c : clients_)
-            if (c->s != INVALID_SOCKET) closesocket(c->s);
-        clients_.clear();
+        gone.swap(clients_);
     }
+    for (auto& c : gone)
+        if (c->s != INVALID_SOCKET) closesocket(c->s);
     if (listen_ != ~uintptr_t(0)) {
         closesocket(sock(listen_));
         listen_ = ~uintptr_t(0);
@@ -158,10 +175,14 @@ bool WsServer::hasSpikeSubscriber(int& rateHz) const {
 
 // ---- network thread -------------------------------------------------------------------------
 
+// Moves queued frames into the write buffer while it is below the low-water mark, so the
+// bounded drop-oldest deque (not c.out) absorbs a slow reader.
 void WsServer::flushQueue(Client& c) {
     std::lock_guard<std::mutex> lk(clientsMx_);
-    for (auto& f : c.queue) c.out += f;
-    c.queue.clear();
+    while (!c.queue.empty() && c.out.size() < kOutLowWater) {
+        c.out += c.queue.front();
+        c.queue.pop_front();
+    }
 }
 
 // Writes as much of c.out as the socket takes. False if the connection is broken.
@@ -170,6 +191,7 @@ bool WsServer::flushOut(Client& c) {
         const int n = ::send(c.s, c.out.data(), static_cast<int>(std::min<size_t>(c.out.size(), 1 << 16)), 0);
         if (n > 0) {
             c.out.erase(0, static_cast<size_t>(n));
+            c.lastWrite = Clock::now();
             continue;
         }
         return n < 0 && WSAGetLastError() == WSAEWOULDBLOCK;
@@ -179,12 +201,12 @@ bool WsServer::flushOut(Client& c) {
 
 void WsServer::beginClose(Client& c, uint16_t code) {
     if (c.closing) return;
-    flushQueue(c);
     c.out += net::ws_encode(kOpClose, closePayload(code));
     c.closing = true;
     c.since = Clock::now();
     std::lock_guard<std::mutex> lk(clientsMx_);
     c.open = false;
+    c.queue.clear();
 }
 
 void WsServer::handleText(Client& c, const std::string& text) {
@@ -210,7 +232,6 @@ void WsServer::handleText(Client& c, const std::string& text) {
                    R"(,"ok":false,"error":"busy"})";
     }
     if (in.reply.empty()) return;  // e.g. subscribe: no ack
-    flushQueue(c);
     c.out += net::ws_encode(kOpText, in.reply);
 }
 
@@ -322,19 +343,28 @@ void WsServer::run() {
                 std::lock_guard<std::mutex> lk(clientsMx_);
                 open = c.open;
             }
+            if (c.out.empty()) c.lastWrite = now;  // stall clock runs only while bytes are pending
             if (open) flushQueue(c);
             if (!open && !c.closing && now - c.since > kHandshakeTimeout) c.dead = true;
             if (c.closing && now - c.since > kLingerTimeout) c.dead = true;
+            // Slow or stalled reader: close with 1008; if even that can't drain, the linger
+            // timeout (or a second trip) kills it.
+            const bool stalled = !c.out.empty() && now - c.lastWrite > kWriteStallTimeout;
+            if (!c.closing && (c.out.size() > kOutHardCap || stalled))
+                beginClose(c, 1008);
+            else if (c.closing && stalled)
+                c.dead = true;
         }
+        std::vector<std::unique_ptr<Client>> gone;
         {
             std::lock_guard<std::mutex> lk(clientsMx_);
-            auto it = std::remove_if(clients_.begin(), clients_.end(), [](const std::unique_ptr<Client>& c) {
-                if (!c->dead) return false;
-                closesocket(c->s);
-                return true;
-            });
+            auto it = std::stable_partition(clients_.begin(), clients_.end(),
+                                            [](const std::unique_ptr<Client>& c) { return !c->dead; });
+            gone.assign(std::make_move_iterator(it), std::make_move_iterator(clients_.end()));
             clients_.erase(it, clients_.end());
         }
+        for (auto& c : gone) closesocket(c->s);
+        gone.clear();
 
         fd_set rd, wr;
         FD_ZERO(&rd);
@@ -353,12 +383,12 @@ void WsServer::run() {
         if (ready == 0) continue;
 
         if (FD_ISSET(ls, &rd)) {
-            const SOCKET s = ::accept(ls, nullptr, nullptr);
+            const SOCKET s = ::accept(ls, nullptr, nullptr);  // non-blocking; WSAEWOULDBLOCK -> skip
             if (s != INVALID_SOCKET) {
-                if (clients_.size() >= kMaxClients) {
+                noInherit(s);
+                if (clients_.size() >= kMaxClients || !setNonBlocking(s)) {
                     closesocket(s);
                 } else {
-                    setNonBlocking(s);
                     BOOL nodelay = TRUE;
                     setsockopt(s, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&nodelay),
                                sizeof nodelay);

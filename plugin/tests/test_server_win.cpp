@@ -44,8 +44,11 @@ struct TestClient {
     SOCKET s = INVALID_SOCKET;
     std::string buf;
 
-    explicit TestClient(uint16_t port) {
+    // rcvbuf > 0 shrinks the receive window (set before connect) so server writes back up fast.
+    explicit TestClient(uint16_t port, int rcvbuf = 0) {
         s = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (rcvbuf > 0)
+            setsockopt(s, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const char*>(&rcvbuf), sizeof rcvbuf);
         DWORD tmo = 3000;
         setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&tmo), sizeof tmo);
         sockaddr_in a{};
@@ -360,4 +363,51 @@ TEST_CASE("server_drops_idle_unhandshaken") {
     auto dt = Clock::now() - t0;
     CHECK(dt > std::chrono::milliseconds(4500));
     CHECK(dt < std::chrono::milliseconds(6500));
+}
+
+
+TEST_CASE("server_drops_stalled_reader") {
+    Running r;
+    TestClient slow(r.srv.port(), 4096);
+    REQUIRE(slow.handshake());
+    REQUIRE(slow.sendFrame(0x1, "{\"type\":\"subscribe\",\"topics\":[\"spike\"],\"rateHz\":5}"));
+    REQUIRE(slow.pingPong("sync"));
+    int rate = 0;
+    REQUIRE(r.srv.hasSpikeSubscriber(rate));
+
+    // The slow client never reads again; the game keeps broadcasting ~60 KB states.
+    const std::string big = "{\"type\":\"state\",\"pad\":\"" + std::string(60 * 1024, 'x') + "\"}";
+    bool dropped = false;
+    auto t0 = Clock::now();
+    while (!dropped && Clock::now() - t0 < std::chrono::seconds(12)) {
+        r.srv.sendToAll(big);
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        dropped = !r.srv.hasSpikeSubscriber(rate);
+    }
+    CHECK(dropped);
+    CHECK(Clock::now() - t0 < std::chrono::seconds(9));  // 5 s stall timeout + slack
+
+    TestClient fresh(r.srv.port());
+    REQUIRE(fresh.handshake());
+    CHECK(fresh.pingPong("alive"));
+}
+
+TEST_CASE("server_output_hard_cap") {
+    Running r;
+    TestClient c(r.srv.port(), 4096);
+    REQUIRE(c.handshake());
+    // Flood pings without reading: ~5 MB of pongs pile up server side and must trip the 2 MB cap.
+    const std::string ping = TestClient::frame(0x9, std::string(125, 'p'));
+    std::string burst;
+    for (int i = 0; i < 1000; ++i) burst += ping;
+    for (int i = 0; i < 40 && c.sendRaw(burst); ++i) {
+    }
+    std::string p;
+    REQUIRE(c.expect(0x8, p));
+    CHECK(closeCode(p) == 1008);
+    CHECK(c.closedByServer());
+
+    TestClient fresh(r.srv.port());
+    REQUIRE(fresh.handshake());
+    CHECK(fresh.pingPong("alive"));
 }
