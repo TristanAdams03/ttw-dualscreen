@@ -12,3 +12,4 @@ plugin/build*/
 tools/mockserver/.venv/
 __pycache__/
 .pytest_cache/
+.kotlin/
