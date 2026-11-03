@@ -1,0 +1,125 @@
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap">
+<style>
+  .tw-row { display:flex; flex-wrap:wrap; gap:34px; justify-content:center; align-items:flex-start; }
+  .tw-col { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .tw-col h3 { margin:6px 0 0; }
+  .tw-col p { margin:0; color:var(--text-secondary); font-size:13px; max-width:420px; text-align:center; }
+  /* Real in-game defaults: FO3 green 26,255,128 · FNV amber 255,182,66 */
+  .dc { --g:#1aff80; --gd:#0e8f49; --gk:#04220f; --bg:#020f07; --glow:rgba(26,255,128,.55); }
+  .nv { --g:#ffb642; --gd:#94661f; --gk:#2a1a05; --bg:#0d0802; --glow:rgba(255,182,66,.5); }
+  .pb { width:420px; height:366px; position:relative; overflow:hidden; background:var(--bg); color:var(--g);
+    border-radius:8px; font-family:'Share Tech Mono','Courier New',monospace; font-size:13px; letter-spacing:.3px;
+    text-shadow:0 0 4px var(--glow); box-shadow:0 0 0 6px #111, 0 0 0 7px #333; }
+  .pb::after { content:''; position:absolute; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px); }
+  .pb .row { display:flex; align-items:center; }
+  .pb .sp { flex:1; }
+  .pb .dim { color:var(--gd); text-shadow:none; }
+  .pb .bar { height:7px; border:1px solid var(--g); position:relative; }
+  .pb .bar > i { position:absolute; left:0; top:0; bottom:0; background:var(--g); }
+  .c-top { padding:6px 10px; border-bottom:1px solid var(--g); font-size:11px; gap:8px; }
+  .c-compass { margin:5px 10px 0; border:1px solid var(--g); height:20px; display:flex; justify-content:space-between; align-items:center; padding:0 8px; font-size:11px; }
+  .c-grid { display:grid; grid-template-columns:112px 1fr; gap:8px; padding:6px 10px 4px; }
+  .c-limbs { border:1px solid var(--g); padding:5px; font-size:10px; display:flex; flex-direction:column; gap:3px; }
+  .c-limbs .vb { height:50px; border:1px dashed var(--gd); display:flex; align-items:center; justify-content:center; margin-bottom:2px; font-size:11px; }
+  .c-limbs .l { display:flex; gap:4px; align-items:center; }
+  .c-limbs .l span:first-child { width:34px; }
+  .c-limbs .l .bar { flex:1; height:5px; }
+  .c-right { display:flex; flex-direction:column; gap:4px; }
+  .c-meter { display:flex; gap:6px; align-items:center; font-size:12px; }
+  .c-meter .bar { flex:1; height:8px; }
+  .c-meter.small { font-size:10px; gap:4px; }
+  .c-meter.small .bar { height:5px; }
+  .c-quest { border:1px solid var(--g); padding:3px 6px; font-size:11px; }
+  .c-world { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:0 10px; font-size:10px; }
+  .c-world div { border:1px solid var(--gd); padding:3px 5px; }
+  .c-quick { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; padding:5px 10px 0; }
+  .c-quick div { border:1px solid var(--g); text-align:center; padding:4px 0; font-size:10px; line-height:1.25; }
+  .c-tabs { position:absolute; left:0; right:0; bottom:0; border-top:1px solid var(--g); display:flex; }
+  .c-tabs span { flex:1; text-align:center; padding:5px 0; font-size:11px; border-right:1px solid var(--gd); }
+  .c-tabs span:last-child { border:none; }
+
+  /* CRT switch demo */
+  #demo { position:relative; width:420px; height:366px; }
+  #demo .pb { position:absolute; inset:0; }
+  #demo.switching .pb { animation:crt .9s ease-in-out; }
+  @keyframes crt { 0%{transform:scaleY(1);filter:brightness(1)} 42%{transform:scaleY(.015);filter:brightness(3)}
+                   58%{transform:scaleY(.015);filter:brightness(3)} 100%{transform:scaleY(1);filter:brightness(1)} }
+  #demo .boot { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;
+    font-family:'Share Tech Mono',monospace; font-size:13px; opacity:0; }
+  #demo.switching .boot { animation:boot .9s ease-in-out; }
+  @keyframes boot { 0%,45%{opacity:0} 55%,70%{opacity:1} 100%{opacity:0} }
+  #ride { margin-top:6px; padding:8px 16px; border-radius:8px; border:1px solid var(--border); background:var(--bg-secondary);
+    color:var(--text-primary); font-size:14px; cursor:pointer; }
+</style>
+
+<h2>Option C, in both wastelands, TTW's own look</h2>
+<p class="subtitle">Plain TTW keeps New Vegas amber in both worlds, so the bottom screen does too. It copies your live in-game Pip-Boy color, so if you change it in settings or run a tint-switcher mod, it follows. What changes between worlds is the content: location, karma vs reputation, collectibles, radio.</p>
+
+<div class="tw-row">
+  <div class="tw-col">
+    <div class="pb nv" id="scr-dc">
+      <div class="row c-top"><span>CAPITAL WASTELAND · MEGATON</span><span class="sp"></span><span>OCT 23, 2277 · 2:41 PM</span></div>
+      <div class="c-compass"><span>W</span><span>·</span><span>NW</span><span>· ▼ ·</span><span>N</span><span>·</span><span>NE</span><span>·</span><span>E</span></div>
+      <div class="c-grid">
+        <div class="c-limbs">
+          <div class="vb dim">[ Vault Boy ]</div>
+          <div class="l"><span>HEAD</span><span class="bar"><i style="width:100%"></i></span></div>
+          <div class="l"><span>TRSO</span><span class="bar"><i style="width:80%"></i></span></div>
+          <div class="l"><span>L.ARM</span><span class="bar"><i style="width:35%"></i></span></div>
+          <div class="l"><span>R.LEG</span><span class="bar"><i style="width:90%"></i></span></div>
+        </div>
+        <div class="c-right">
+          <div class="c-meter"><span>HP&nbsp;</span><span class="bar"><i style="width:87%"></i></span><span>245</span></div>
+          <div class="c-meter"><span>AP&nbsp;</span><span class="bar"><i style="width:94%"></i></span><span>85</span></div>
+          <div class="c-meter"><span>RAD</span><span class="bar"><i style="width:18%"></i></span><span>182</span></div>
+          <div class="c-quest"><div>▶ Following in His Footsteps</div><div class="dim">&nbsp; Find Three Dog at GNR</div></div>
+          <div class="c-meter" style="font-size:11px"><span>Lincoln's Repeater</span><span class="sp"></span><span>7/10 · .44 (86)</span></div>
+        </div>
+      </div>
+      <div class="c-world">
+        <div>KARMA · Protector of the Wastes</div>
+        <div>BOBBLEHEADS · 7 / 20</div>
+        <div style="grid-column:1/3">♪ GALAXY NEWS RADIO · "Three Dog here…"</div>
+      </div>
+      <div class="c-quick"><div>STIMPAK<br>×12</div><div>RADAWAY<br>×3</div><div>RAD-X<br>×5</div><div>MED-X<br>×2</div></div>
+      <div class="c-tabs"><span>STATS</span><span>ITEMS</span><span>DATA</span><span>MAP</span><span>RADIO</span></div>
+    </div>
+    <h3>Capital Wasteland</h3>
+    <p>Karma title up front, bobblehead count, GNR on the radio card.</p>
+  </div>
+
+  <div class="tw-col">
+    <div class="pb nv" id="scr-nv">
+      <div class="row c-top"><span>MOJAVE WASTELAND · GOODSPRINGS</span><span class="sp"></span><span>OCT 19, 2281 · 9:12 AM</span></div>
+      <div class="c-compass"><span>S</span><span>·</span><span>SW</span><span>· ▼ ·</span><span>W</span><span>·</span><span>NW</span><span>·</span><span>N</span></div>
+      <div class="c-grid">
+        <div class="c-limbs">
+          <div class="vb dim">[ Vault Boy ]</div>
+          <div class="l"><span>HEAD</span><span class="bar"><i style="width:60%"></i></span></div>
+          <div class="l"><span>TRSO</span><span class="bar"><i style="width:95%"></i></span></div>
+          <div class="l"><span>L.ARM</span><span class="bar"><i style="width:100%"></i></span></div>
+          <div class="l"><span>R.LEG</span><span class="bar"><i style="width:100%"></i></span></div>
+        </div>
+        <div class="c-right">
+          <div class="c-meter"><span>HP&nbsp;</span><span class="bar"><i style="width:70%"></i></span><span>196</span></div>
+          <div class="c-meter"><span>AP&nbsp;</span><span class="bar"><i style="width:100%"></i></span><span>90</span></div>
+          <div class="c-meter small"><span>H2O</span><span class="bar"><i style="width:30%"></i></span><span>FOD</span><span class="bar"><i style="width:55%"></i></span><span>SLP</span><span class="bar"><i style="width:12%"></i></span></div>
+          <div class="c-quest"><div>▶ They Went That-a-Way</div><div class="dim">&nbsp; Follow the Khans to Primm</div></div>
+          <div class="c-meter" style="font-size:11px"><span>Varmint Rifle</span><span class="sp"></span><span>4/5 · 5.56 (40)</span></div>
+        </div>
+      </div>
+      <div class="c-world">
+        <div>REP · NCR Liked</div>
+        <div>SNOW GLOBES · 2 / 11</div>
+        <div style="grid-column:1/3">♪ RADIO NEW VEGAS · Mr. New Vegas</div>
+      </div>
+      <div class="c-quick"><div>STIMPAK<br>×8</div><div>PURE H2O<br>×4</div><div>RAD-X<br>×5</div><div>DOC BAG<br>×1</div></div>
+      <div class="c-tabs"><span>STATS</span><span>ITEMS</span><span>DATA</span><span>MAP</span><span>RADIO</span></div>
+    </div>
+    <h3>Mojave Wasteland</h3>
+    <p>Faction reputation up front, snow globes, Radio New Vegas. Hardcore needs (H2O / FOD / SLP) appear whenever Hardcore is on, in either world.</p>
+  </div>
+
+</div>
+

@@ -1,0 +1,167 @@
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap">
+<style>
+  .pb-wrap { display:flex; flex-wrap:wrap; gap:28px; justify-content:center; }
+  .pb-card { cursor:pointer; border:2px solid transparent; border-radius:14px; padding:10px; transition:border-color .15s; }
+  .pb-card.selected { border-color: var(--selected-border); background: var(--selected-bg); }
+  .pb-card h3 { margin:10px 4px 2px; }
+  .pb-card p { margin:2px 4px 0; color: var(--text-secondary); font-size:13px; max-width:420px; }
+  /* The Thor's bottom screen: 3.92in, 1240x1080 → ~1.15:1 */
+  .pb {
+    --g:#1aff80; --gd:#0c8a45; --gk:#04220f; --bg:#020f07;
+    width:420px; height:366px; position:relative; overflow:hidden;
+    background:var(--bg); color:var(--g); border-radius:8px;
+    font-family:'Share Tech Mono','Courier New',monospace; font-size:13px; letter-spacing:.3px;
+    text-shadow:0 0 4px rgba(26,255,128,.55); box-shadow:0 0 0 6px #111, 0 0 0 7px #333;
+  }
+  .pb::after { content:''; position:absolute; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px); }
+  .pb .row { display:flex; align-items:center; }
+  .pb .sp { flex:1; }
+  .pb .box { border:1px solid var(--g); }
+  .pb .hl { background:var(--g); color:var(--bg); text-shadow:none; }
+  .pb .dim { color:var(--gd); text-shadow:none; }
+  .pb .bar { height:7px; border:1px solid var(--g); position:relative; }
+  .pb .bar > i { position:absolute; left:0; top:0; bottom:0; background:var(--g); }
+
+  /* A: classic */
+  .a-top { padding:8px 10px 4px; gap:12px; border-bottom:1px solid var(--g); font-size:12px; }
+  .a-sub { padding:5px 10px; gap:14px; font-size:12px; }
+  .a-sub span.on { border:1px solid var(--g); padding:1px 5px; }
+  .a-body { display:flex; padding:4px 10px; gap:10px; height:232px; }
+  .a-list { width:52%; }
+  .a-list div { padding:3px 4px; }
+  .a-list div.sel { border:1px solid var(--g); }
+  .a-stats { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:6px; align-content:start; }
+  .a-stats div { border:1px solid var(--g); padding:3px 5px; font-size:12px; }
+  .a-art { grid-column:1/3; height:84px; display:flex; align-items:center; justify-content:center; border:1px dashed var(--gd)!important; }
+  .a-bottom { position:absolute; left:0; right:0; bottom:0; border-top:1px solid var(--g); padding:6px 10px; gap:10px; font-size:12px; }
+  .a-tabs { position:absolute; left:0; right:0; bottom:30px; justify-content:center; gap:46px; font-size:14px; }
+  .a-tabs span.on { border:1px solid var(--g); padding:1px 8px; }
+
+  /* B: app style */
+  .b-tabs { gap:0; border-bottom:2px solid var(--g); font-size:15px; }
+  .b-tabs span { flex:1; text-align:center; padding:8px 0 6px; }
+  .b-tabs span.on { background:var(--gk); border:2px solid var(--g); border-bottom:none; }
+  .b-sub { gap:12px; padding:5px 10px; font-size:11px; overflow:hidden; white-space:nowrap; }
+  .b-sub span.on { text-decoration:underline; }
+  .b-body { display:flex; gap:8px; padding:2px 10px; height:236px; }
+  .b-list { width:55%; display:flex; flex-direction:column; gap:4px; }
+  .b-list div { padding:7px 6px; border:1px solid var(--gd); display:flex; gap:6px; }
+  .b-list div.sel { border-color:var(--g); background:var(--gk); }
+  .b-card { flex:1; border:1px solid var(--g); padding:6px; display:flex; flex-direction:column; gap:5px; font-size:12px; }
+  .b-card .art { height:70px; border:1px dashed var(--gd); display:flex; align-items:center; justify-content:center; }
+  .b-btn { margin-top:auto; text-align:center; padding:6px; }
+  .b-bottom { position:absolute; left:0; right:0; bottom:0; border-top:2px solid var(--g); padding:7px 10px; gap:10px; font-size:12px; }
+
+  /* C: HUD-first */
+  .c-top { padding:6px 10px; border-bottom:1px solid var(--g); font-size:11px; gap:8px; }
+  .c-compass { margin:5px 10px 0; border:1px solid var(--g); height:20px; display:flex; justify-content:space-between; align-items:center; padding:0 8px; font-size:11px; }
+  .c-grid { display:grid; grid-template-columns:118px 1fr; gap:8px; padding:6px 10px; }
+  .c-limbs { border:1px solid var(--g); padding:5px; font-size:11px; display:flex; flex-direction:column; gap:3px; }
+  .c-limbs .vb { height:56px; border:1px dashed var(--gd); display:flex; align-items:center; justify-content:center; margin-bottom:2px; }
+  .c-limbs .l { display:flex; gap:4px; align-items:center; }
+  .c-limbs .l .bar { flex:1; height:5px; }
+  .c-right { display:flex; flex-direction:column; gap:5px; }
+  .c-meter { display:flex; gap:6px; align-items:center; font-size:12px; }
+  .c-meter .bar { flex:1; height:9px; }
+  .c-quest { border:1px solid var(--g); padding:4px 6px; font-size:11px; }
+  .c-quick { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; padding:0 10px; }
+  .c-quick div { border:1px solid var(--g); text-align:center; padding:6px 0; font-size:11px; line-height:1.25; }
+  .c-tabs { position:absolute; left:0; right:0; bottom:0; border-top:1px solid var(--g); display:flex; }
+  .c-tabs span { flex:1; text-align:center; padding:6px 0; font-size:11px; border-right:1px solid var(--gd); }
+</style>
+
+<h2>Which direction feels right for the bottom screen?</h2>
+<p class="subtitle">All three are drawn at the shape of the Thor's lower screen (3.92", almost square). Green is just the default. The real app would follow whatever Pip-Boy color you set in game. Click one, or tell me what you'd mix.</p>
+
+<div class="pb-wrap">
+
+  <!-- A -->
+  <div class="pb-card" data-choice="classic" onclick="toggleSelect(this)">
+    <div class="pb">
+      <div class="row a-top"><span>Wg 142/210</span><span>HP 245/280</span><span>DT 18</span><span class="sp"></span><span>Caps 1,204</span></div>
+      <div class="row a-sub"><span class="on">Weapons</span><span>Apparel</span><span>Aid</span><span>Misc</span><span>Ammo</span></div>
+      <div class="a-body">
+        <div class="a-list">
+          <div class="sel">■ Lincoln's Repeater</div>
+          <div>&nbsp; Chinese Assault Rifle</div>
+          <div>&nbsp; 10mm Pistol (2)</div>
+          <div>&nbsp; Combat Knife</div>
+          <div>&nbsp; Fat Man</div>
+          <div>&nbsp; Varmint Rifle</div>
+          <div class="dim">&nbsp; ▼ 9 more</div>
+        </div>
+        <div class="a-stats">
+          <div class="a-art dim">[ weapon icon ]</div>
+          <div>DAM 36</div><div>WG 7</div>
+          <div>VAL 412</div><div>CND <span class="bar" style="display:inline-block;width:46px;vertical-align:middle"><i style="width:72%"></i></span></div>
+          <div style="grid-column:1/3">.44 Magnum (86)</div>
+        </div>
+      </div>
+      <div class="row a-tabs"><span>STATS</span><span class="on">ITEMS</span><span>DATA</span></div>
+      <div class="row a-bottom"><span>LVL 14</span><span class="sp"></span><span>XP 4,120/4,750</span></div>
+    </div>
+    <h3>A · Classic Pip-Boy 3000</h3>
+    <p>An exact copy of the in-game Pip-Boy (STATS / ITEMS / DATA with the same sub-tabs), so it feels like you just took it off your wrist. Tap to equip or use.</p>
+  </div>
+
+  <!-- B -->
+  <div class="pb-card" data-choice="app" onclick="toggleSelect(this)">
+    <div class="pb">
+      <div class="row b-tabs"><span>STAT</span><span class="on">INV</span><span>DATA</span><span>MAP</span><span>RADIO</span></div>
+      <div class="row b-sub"><span class="on">WEAPONS</span><span>APPAREL</span><span>AID</span><span>MISC</span><span>AMMO</span><span class="dim">Wg 142/210 · 1,204 caps</span></div>
+      <div class="b-body">
+        <div class="b-list">
+          <div class="sel"><span>■</span><span>Lincoln's Repeater</span></div>
+          <div><span>&nbsp;</span><span>Chinese Assault Rifle</span></div>
+          <div><span>&nbsp;</span><span>10mm Pistol (2)</span></div>
+          <div><span>&nbsp;</span><span>Combat Knife</span></div>
+          <div><span>&nbsp;</span><span>Fat Man</span></div>
+        </div>
+        <div class="b-card">
+          <div class="art dim">[ weapon icon ]</div>
+          <div class="row"><span>DAM</span><span class="sp"></span><span>36</span></div>
+          <div class="row"><span>Weight</span><span class="sp"></span><span>7</span></div>
+          <div class="row"><span>Value</span><span class="sp"></span><span>412</span></div>
+          <div class="row"><span>CND</span><span class="sp"></span><span class="bar" style="width:60px"><i style="width:72%"></i></span></div>
+          <div class="b-btn hl">UNEQUIP</div>
+        </div>
+      </div>
+      <div class="row b-bottom"><span>HP 245/280</span><span class="sp"></span><span>LVL 14</span><span class="bar" style="width:70px"><i style="width:86%"></i></span><span class="sp"></span><span>AP 85/90</span></div>
+    </div>
+    <h3>B · Fallout 4 Pip-Boy app style</h3>
+    <p>Five big tabs (STAT, INV, DATA, MAP, RADIO) with larger touch targets and an item card with buttons. Map and Radio get their own tabs instead of hiding under DATA.</p>
+  </div>
+
+  <!-- C -->
+  <div class="pb-card" data-choice="hud" onclick="toggleSelect(this)">
+    <div class="pb">
+      <div class="row c-top"><span>MEGATON · CAPITAL WASTELAND</span><span class="sp"></span><span>DAY 12 · 2:41 PM</span></div>
+      <div class="c-compass"><span>W</span><span>·</span><span>NW</span><span>· ▼ ·</span><span>N</span><span>·</span><span>NE</span><span>·</span><span>E</span></div>
+      <div class="c-grid">
+        <div class="c-limbs">
+          <div class="vb dim">[ Vault Boy ]</div>
+          <div class="l"><span>HEAD</span><span class="bar"><i style="width:100%"></i></span></div>
+          <div class="l"><span>TRSO</span><span class="bar"><i style="width:80%"></i></span></div>
+          <div class="l"><span>L.ARM</span><span class="bar"><i style="width:35%"></i></span></div>
+          <div class="l"><span>R.LEG</span><span class="bar"><i style="width:90%"></i></span></div>
+        </div>
+        <div class="c-right">
+          <div class="c-meter"><span>HP&nbsp;</span><span class="bar"><i style="width:87%"></i></span><span>245</span></div>
+          <div class="c-meter"><span>AP&nbsp;</span><span class="bar"><i style="width:94%"></i></span><span>85</span></div>
+          <div class="c-meter"><span>RAD</span><span class="bar"><i style="width:18%"></i></span><span>182</span></div>
+          <div class="c-meter"><span>XP&nbsp;</span><span class="bar"><i style="width:86%"></i></span><span>L14</span></div>
+          <div class="c-quest"><div>▶ Following in His Footsteps</div><div class="dim">&nbsp; Find Three Dog at GNR</div></div>
+          <div class="c-meter" style="font-size:11px"><span>Lincoln's Repeater</span><span class="sp"></span><span>7/10 · .44 (86)</span></div>
+        </div>
+      </div>
+      <div class="c-quick">
+        <div>STIMPAK<br>×12</div><div>RADAWAY<br>×3</div><div>RAD-X<br>×5</div><div>MED-X<br>×2</div>
+      </div>
+      <div class="c-tabs"><span>STATS</span><span>ITEMS</span><span>DATA</span><span>MAP</span><span style="border:none">RADIO</span></div>
+    </div>
+    <h3>C · HUD first, Pip-Boy one tap away</h3>
+    <p>The home view is a live dashboard: limb condition, HP/AP/rads, compass, tracked quest, equipped weapon and one-tap stimpaks. The full Pip-Boy pages sit on the tabs along the bottom.</p>
+  </div>
+
+</div>
