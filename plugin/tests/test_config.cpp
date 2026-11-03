@@ -106,3 +106,73 @@ TEST_CASE("logger with level off creates no file") {
     std::ifstream f(path);
     CHECK_FALSE(f.good());
 }
+
+static std::string slurp(const std::string& path) {
+    std::ifstream f(path);
+    std::stringstream ss;
+    ss << f.rdbuf();
+    return ss.str();
+}
+
+TEST_CASE("logger rotates the previous log to .1") {
+    const std::string path = "ttwds_rot.log";
+    std::remove(path.c_str());
+    std::remove((path + ".1").c_str());
+    {
+        Logger a;
+        REQUIRE(a.open(path, LogLevel::Info));
+        a.info("first run");
+    }
+    {
+        Logger b;
+        REQUIRE(b.open(path, LogLevel::Info));
+        b.info("second run");
+    }
+    {
+        Logger c;
+        REQUIRE(c.open(path, LogLevel::Info));
+        c.info("third run");
+    }
+    CHECK(slurp(path).find("third run") != std::string::npos);
+    CHECK(slurp(path).find("second run") == std::string::npos);
+    CHECK(slurp(path + ".1").find("second run") != std::string::npos);  // .1 replaced
+    CHECK(slurp(path + ".1").find("first run") == std::string::npos);
+    std::remove(path.c_str());
+    std::remove((path + ".1").c_str());
+}
+
+TEST_CASE("logger stops at the size cap with one final line") {
+    const std::string path = "ttwds_cap.log";
+    std::remove(path.c_str());
+    {
+        Logger lg;
+        lg.setMaxBytes(300);
+        REQUIRE(lg.open(path, LogLevel::Info));
+        for (int i = 0; i < 50; ++i) lg.info("line %d xxxxxxxxxxxxxxxxxxxx", i);
+    }
+    const std::string s = slurp(path);
+    CHECK(s.size() < 450);
+    CHECK(s.find("line 0 ") != std::string::npos);
+    CHECK(s.find("line 49") == std::string::npos);
+    size_t n = 0;
+    for (size_t p = s.find("log size cap reached"); p != std::string::npos; p = s.find("log size cap reached", p + 1)) ++n;
+    CHECK(n == 1);
+    std::remove(path.c_str());
+    std::remove((path + ".1").c_str());
+}
+
+TEST_CASE("logger force writes even with level off") {
+    const std::string path = "ttwds_force.log";
+    std::remove(path.c_str());
+    {
+        Logger lg;
+        lg.open(path, LogLevel::Off);
+        lg.info("not this");
+        lg.force("refusing: %s", "editor");
+    }
+    const std::string s = slurp(path);
+    CHECK(s.find("refusing: editor") != std::string::npos);
+    CHECK(s.find("not this") == std::string::npos);
+    std::remove(path.c_str());
+    std::remove((path + ".1").c_str());
+}

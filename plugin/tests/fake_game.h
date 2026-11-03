@@ -4,8 +4,10 @@
 struct FakeGame : ttwds::proto::IGame {
     bool loaded = true;
     bool ttw = false;  // TTW absent by default: the TTW globals read as null
+    const char* blocked = nullptr;  // "in menu" / "loading" to simulate a blocked game
     int equipCalls = 0, dumpCalls = 0, snapshotCalls = 0;
     bool saveLoaded() override { return loaded; }
+    const char* blockedReason() override { return blocked; }
     ttwds::proto::SpikeSnapshot snapshot(int64_t frame, int64_t ms) override {
         ++snapshotCalls;
         ttwds::proto::SpikeSnapshot s;

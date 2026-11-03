@@ -42,7 +42,8 @@ constexpr const char* kPluginName = "TTW DualScreen";
 constexpr UInt32 kPluginVersion = 1;
 constexpr const char* kPluginVersionString = "0.0.1-spike";
 
-Logger g_log;
+// Leaked like g_server: no destructor (and its mutex) runs at process detach.
+Logger& g_log = *new Logger();
 Config g_cfg;
 bool g_inited = false;
 std::string g_dir;  // ...\Data\NVSE\Plugins\ (with trailing backslash)
@@ -196,11 +197,11 @@ bool NVSEPlugin_Query(const NVSEInterface* nvse, PluginInfo* info) {
     info->name = kPluginName;
     info->version = kPluginVersion;
     if (nvse->isEditor) {
-        g_log.info("query: refusing to load in the editor");
+        g_log.force("query: refusing to load in the editor");
         return false;
     }
     if (nvse->runtimeVersion != RUNTIME_VERSION_1_4_0_525) {
-        g_log.info("query: refusing: runtime %08X is not FNV 1.4.0.525 (%08X)", nvse->runtimeVersion,
+        g_log.force("query: refusing: runtime %08X is not FNV 1.4.0.525 (%08X)", nvse->runtimeVersion,
                    static_cast<UInt32>(RUNTIME_VERSION_1_4_0_525));
         return false;
     }

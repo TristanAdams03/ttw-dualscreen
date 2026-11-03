@@ -17,7 +17,8 @@ struct WorldRead {
     char cell[160] = {};       // display name, else EditorID
     float pos[3] = {};
 };
-void read_world(void* ctx);  // WorldRead*
+void read_world(void* ctx);  // WorldRead*; interiors leave worldspace empty
+void read_door_worldspace(void* ctx);  // WorldRead*; low confidence, own fault bit
 
 struct WeaponRead {
     bool found = false;

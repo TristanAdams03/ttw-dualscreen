@@ -20,6 +20,7 @@
 #include "nvse/GameForms.h"
 #include "nvse/GameObjects.h"
 #include "nvse/GameRTTI.h"
+#include "nvse/GameUI.h"
 #include "nvse/PluginAPI.h"
 
 namespace ttwds::game {
@@ -140,6 +141,23 @@ void read_ttw_index(void* ctx) {
     r->index = dh->GetModIndex("TaleOfTwoWastelands.esm");
 }
 
+// ---- menu / loading state ------------------------------------------------------------------
+struct MenuRead {
+    bool loading = false, menuMode = false, dialog = false;
+};
+// Visibility array: X GameUI.cpp:3 `g_MenuVisibilityArray = (UInt8*)0x011F308F`, indexed by menu
+// type in InterfaceManager::IsMenuVisible (X GameUI.cpp:16-22). GameUI.cpp is not in the example
+// source set, so the same array is read directly. Types: X GameUI.h:96 kMenuType_Loading (0x3EF),
+// :98 kMenuType_Dialog (0x3F1). Menu mode: X Hooks_Gameplay.cpp:962 `CdeclCall<bool>(0x702360)`,
+// what xNVSE itself evaluates every frame (also research nvse-plugin.md section 7, game status).
+void read_menu_state(void* ctx) {
+    auto* r = static_cast<MenuRead*>(ctx);
+    const UInt8* visible = reinterpret_cast<const UInt8*>(0x011F308F);
+    r->loading = visible[kMenuType_Loading] != 0;
+    r->dialog = visible[kMenuType_Dialog] != 0;
+    r->menuMode = CdeclCall<bool>(0x702360);
+}
+
 void copy_name(const char* src, char* dst, size_t n) {
     if (!seh_copy_cstr(src, dst, n)) dst[0] = 0;
 }
@@ -149,15 +167,24 @@ void copy_name(const char* src, char* dst, size_t n) {
 // ---- shared with commands.cpp ---------------------------------------------------------------
 namespace engine {
 
-// Cell and worldspace: X GameObjects.h:145 TESObjectREFR::parentCell; X GameForms.h:3565
-// TESObjectCELL::worldSpace (@0xC0) and :3579 IsInterior() == (worldSpace == NULL);
+namespace {
+void copy_worldspace(TESWorldSpace* ws, WorldRead* w) {
+    if (!is_type(ws, kFormType_TESWorldSpace)) return;
+    copy_name(ws->GetEditorID(), w->worldspace, sizeof w->worldspace);
+    TESWorldSpace* parent = ws->parent;
+    if (is_type(parent, kFormType_TESWorldSpace))
+        copy_name(parent->GetEditorID(), w->parentWorldspace, sizeof w->parentWorldspace);
+}
+}  // namespace
+
+// Cell and worldspace (high confidence): X GameObjects.h:145 TESObjectREFR::parentCell;
+// X GameForms.h:3565 TESObjectCELL::worldSpace (@0xC0) and :3579 IsInterior() == (worldSpace == NULL);
 // X GameForms.cpp:67-78 GetFullName: unnamed exterior cells inherit the worldspace name.
 // EditorID: X GameForms.cpp:18-46 GetEditorID -> virtual GetName (worldspaces and cells keep
 // their EDIDs at runtime: `cow`/`coc` resolve them; NVWM main.cpp:735 reads ws->GetName()).
 // Parent worldspace: X GameForms.h:3678 TESWorldSpace `parent; // 070 confirmed`.
-// Interior: the worldspace the player came from, via PlayerCharacter::lastExteriorDoor @0x604
-// (J GameObjects.h:945; xNVSE only has unk604 there) -> door->parentCell->worldSpace.
 // Position: X GameObjects.h:142 posX/posY/posZ.
+// Interiors leave worldspace empty here; see read_door_worldspace.
 void read_world(void* ctx) {
     auto* w = static_cast<WorldRead*>(ctx);
     PlayerCharacter* p = player();
@@ -172,20 +199,20 @@ void read_world(void* ctx) {
 
     copy_name(cell->GetTheName(), w->cell, sizeof w->cell);
     if (!w->cell[0]) copy_name(cell->GetEditorID(), w->cell, sizeof w->cell);
+    copy_worldspace(cell->worldSpace, w);
+}
 
-    TESWorldSpace* ws = cell->worldSpace;
-    if (!ws) {
-        auto* door = *reinterpret_cast<TESObjectREFR**>(reinterpret_cast<char*>(p) + 0x604);
-        if (is_type(door, kFormType_TESObjectREFR) && is_type(door->parentCell, kFormType_TESObjectCELL)) {
-            ws = door->parentCell->worldSpace;
-            w->wsFromDoor = ws != nullptr;
-        }
-    }
-    if (!is_type(ws, kFormType_TESWorldSpace)) return;
-    copy_name(ws->GetEditorID(), w->worldspace, sizeof w->worldspace);
-    TESWorldSpace* parent = ws->parent;
-    if (is_type(parent, kFormType_TESWorldSpace))
-        copy_name(parent->GetEditorID(), w->parentWorldspace, sizeof w->parentWorldspace);
+// LOW confidence, separate fault bit: PlayerCharacter::lastExteriorDoor @0x604 (J GameObjects.h:945;
+// xNVSE only has unk604 there) -> door->parentCell->worldSpace, every hop type-checked.
+// Only called when the current cell has no worldspace (interior).
+void read_door_worldspace(void* ctx) {
+    auto* w = static_cast<WorldRead*>(ctx);
+    PlayerCharacter* p = player();
+    if (!p) return;
+    auto* door = *reinterpret_cast<TESObjectREFR**>(reinterpret_cast<char*>(p) + 0x604);
+    if (!is_type(door, kFormType_TESObjectREFR) || !is_type(door->parentCell, kFormType_TESObjectCELL)) return;
+    copy_worldspace(door->parentCell->worldSpace, w);
+    w->wsFromDoor = w->worldspace[0] != 0;
 }
 
 }  // namespace engine
@@ -201,6 +228,25 @@ bool NvseGame::guarded(uint32_t bit, const char* what, void (*fn)(void*), void* 
     disabled_ |= bit;
     log_.info("reader '%s' faulted (exception 0x%08lX); disabled for this session", what, code);
     return false;
+}
+
+const char* NvseGame::blockedReason() {
+    if (!onMainThread()) return "not on main thread";
+    MenuRead m;
+    if (!guarded(kMenu, "menu state", read_menu_state, &m)) return "menu state unreadable";
+    if (m.loading) return "loading";
+    if (m.menuMode || m.dialog) return "in menu";
+    return nullptr;
+}
+
+void NvseGame::resolveInteriorWorldspace(engine::WorldRead& w) {
+    if (!w.ok || !w.interior || w.worldspace[0]) return;
+    engine::WorldRead d;  // separate buffer: a fault here cannot corrupt w
+    if (guarded(kDoorWs, "last exterior door worldspace", engine::read_door_worldspace, &d) && d.wsFromDoor) {
+        std::memcpy(w.worldspace, d.worldspace, sizeof w.worldspace);
+        std::memcpy(w.parentWorldspace, d.parentWorldspace, sizeof w.parentWorldspace);
+        w.wsFromDoor = true;
+    }
 }
 
 void NvseGame::dropState(const char* why) {
@@ -275,6 +321,7 @@ proto::SpikeSnapshot NvseGame::snapshot(int64_t frame, int64_t ms) {
 
     engine::WorldRead w;
     if (guarded(kWorld, "world", engine::read_world, &w) && w.ok) {
+        resolveInteriorWorldspace(w);
         s.interior = w.interior;
         if (w.worldspace[0]) s.worldspace = std::string(w.worldspace);
         if (w.cell[0]) s.cell = std::string(w.cell);

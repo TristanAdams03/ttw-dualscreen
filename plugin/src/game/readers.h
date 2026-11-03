@@ -13,6 +13,10 @@
 
 struct NVSEConsoleInterface;
 
+namespace ttwds::game::engine {
+struct WorldRead;
+}
+
 namespace ttwds::game {
 
 class Logger;
@@ -33,6 +37,7 @@ public:
     int ttwModIndex();
 
     bool saveLoaded() override { return loaded_; }
+    const char* blockedReason() override;
     proto::SpikeSnapshot snapshot(int64_t frame, int64_t ms) override;
     proto::CommandResult equipFirstWeapon() override;
     proto::CommandResult dumpWorld() override;
@@ -40,13 +45,16 @@ public:
     // Readers that faulted once are switched off for the rest of the session.
     static constexpr uint32_t kHealth = 1u << 0, kHardcore = 1u << 1, kGlobals = 1u << 2,
                               kWorld = 1u << 3, kColors = 1u << 4, kInventory = 1u << 5,
-                              kScan = 1u << 6, kModIndex = 1u << 7;
+                              kScan = 1u << 6, kModIndex = 1u << 7,
+                              kDoorWs = 1u << 8, kConsole = 1u << 9, kMenu = 1u << 10;
 
 private:
     bool onMainThread() const;
     bool guarded(uint32_t bit, const char* what, void (*fn)(void*), void* ctx);
     void dropState(const char* why);
     void scanGlobals();
+    // Interior only: worldspace via the last exterior door (low confidence, own fault bit).
+    void resolveInteriorWorldspace(engine::WorldRead& w);
 
     Logger& log_;
     NVSEConsoleInterface* console_ = nullptr;

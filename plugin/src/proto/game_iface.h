@@ -28,6 +28,9 @@ class IGame {
 public:
     virtual ~IGame() = default;
     virtual bool saveLoaded() = 0;
+    // Why actions must not run right now ("in menu", "loading"), or nullptr when clear.
+    // Read-only commands (dumpWorld) ignore it.
+    virtual const char* blockedReason() = 0;
     virtual SpikeSnapshot snapshot(int64_t frame, int64_t ms) = 0;
     virtual CommandResult equipFirstWeapon() = 0;
     virtual CommandResult dumpWorld() = 0;

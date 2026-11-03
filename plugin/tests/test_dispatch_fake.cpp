@@ -138,3 +138,25 @@ TEST_CASE("format helpers") {
     CHECK(rgb[1] == 182);
     CHECK(rgb[2] == 66);
 }
+
+TEST_CASE("equip refused while in a menu or loading; dumpWorld still runs") {
+    for (const char* reason : {"in menu", "loading"}) {
+        FakeGame g;
+        g.blocked = reason;
+        json r = json::parse(run_command(g, "e1", "spike.equipFirstWeapon"));
+        CHECK(r["ok"] == false);
+        CHECK(r["error"] == reason);
+        CHECK(g.equipCalls == 0);
+        json d = json::parse(run_command(g, "d1", "spike.dumpWorld"));
+        CHECK(d["ok"] == true);
+        CHECK(g.dumpCalls == 1);
+    }
+}
+
+TEST_CASE("no save wins over blocked") {
+    FakeGame g;
+    g.loaded = false;
+    g.blocked = "loading";
+    json r = json::parse(run_command(g, "e2", "spike.equipFirstWeapon"));
+    CHECK(r["error"] == "no save loaded");
+}

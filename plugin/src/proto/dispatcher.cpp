@@ -81,7 +81,10 @@ std::string run_command(IGame& game, const std::string& id, const std::string& n
         } else if (!game.saveLoaded()) {
             r.error = "no save loaded";
         } else if (name == "spike.equipFirstWeapon") {
-            r = game.equipFirstWeapon();
+            if (const char* blocked = game.blockedReason())
+                r.error = blocked;
+            else
+                r = game.equipFirstWeapon();
         } else {
             r = game.dumpWorld();
         }

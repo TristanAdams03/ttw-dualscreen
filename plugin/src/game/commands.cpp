@@ -34,6 +34,7 @@ void read_first_unequipped_weapon(void* ctx) {
     auto* r = static_cast<WeaponRead*>(ctx);
     PlayerCharacter* p = g_thePlayer ? *g_thePlayer : nullptr;
     if (!p) return;
+    if (!p->extraDataList.HasType(kExtraData_ContainerChanges)) return;  // presence bit first (X GameBSExtraData.cpp:9-12)
     auto* xc = static_cast<ExtraContainerChanges*>(p->extraDataList.GetByType(kExtraData_ContainerChanges));
     ExtraContainerChanges::EntryDataList* list = xc ? xc->GetEntryDataList() : nullptr;
     if (!list) return;
@@ -102,13 +103,13 @@ proto::CommandResult NvseGame::equipFirstWeapon() {
     log_.debug("inventory: %u entries, %u weapons", w.entries, w.weapons);
     if (!w.found) return fail("no unequipped weapon");
 
+    if (disabled_ & kConsole) return fail("console disabled after fault");
     const std::string line = equip_line(w.formId);
     engine::ConsoleRun run;
     run.console = console_;
     run.line = line.c_str();
-    unsigned long code = 0;
-    if (!seh_call(engine::run_console_line, &run, &code)) {
-        log_.info("equip: console faulted (0x%08lX) on '%s'", code, line.c_str());
+    if (!guarded(kConsole, "console", engine::run_console_line, &run)) {
+        log_.info("equip: console faulted on '%s'; console commands disabled", line.c_str());
         return fail("console command faulted");
     }
     log_.info("equip: '%s' (%s) via %s -> %s", line.c_str(), w.name, run.used2 ? "RunScriptLine2" : "RunScriptLine",
@@ -125,6 +126,7 @@ proto::CommandResult NvseGame::dumpWorld() {
     if (!onMainThread()) return fail("not on main thread");
     engine::WorldRead w;
     if (!guarded(kWorld, "world", engine::read_world, &w) || !w.ok) return fail("world read failed");
+    resolveInteriorWorldspace(w);  // own fault bit: a fault there keeps this command working
 
     auto str = [](const char* s) { return s[0] ? nlohmann::json(std::string(s)) : nlohmann::json(nullptr); };
     proto::CommandResult r;

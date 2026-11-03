@@ -1,6 +1,9 @@
 #pragma once
 // Hardware-exception guard for engine reads (MSVC SEH). fn must only touch POD data:
 // with /EHsc, destructors of C++ objects between the fault and the __except do not run.
+// Recovery after a fault inside engine code is best-effort: the engine may be left mid-way
+// (e.g. holding a lock or with a half-updated structure). That is why the faulting reader is
+// disabled for the session rather than retried.
 #include <cstddef>
 #include <cstdint>
 

@@ -30,7 +30,8 @@ jobs:
           $out -split "`n" | Select-String -Pattern "machine|NVSEPlugin_|DLL characteristics" | ForEach-Object { Write-Host $_.Line.Trim() }
           if ($out -notmatch "14C machine \(x86\)") { throw "DLL is not x86" }
           foreach ($name in "NVSEPlugin_Query", "NVSEPlugin_Load") {
-            if ($out -notmatch "\b$name\b") { throw "export $name missing" }
+            # an exports-table row: ordinal, hint, RVA, then exactly the undecorated name
+            if ($out -notmatch "(?m)^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]{8}\s+$name\s*$") { throw "export $name missing" }
           }
           $deps = & $dumpbin.FullName /dependents $dll | Out-String
           Write-Host $deps
