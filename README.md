@@ -15,3 +15,7 @@ Design: [docs/superpowers/specs/2026-11-03-ttw-dualscreen-design.md](docs/superp
 Protocol: [protocol/PROTOCOL.md](protocol/PROTOCOL.md)
 
 License: GPL-3.0-or-later. No Bethesda or TTW assets are included.
+
+## Setting up TTW on the AYN Thor
+
+New to TTW on Android? Start with the [setup guide](docs/guide/ttw-on-ayn-thor.md). It covers building TTW on a PC, moving it to the Thor, and setting up GameNative.
