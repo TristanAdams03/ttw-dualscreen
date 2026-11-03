@@ -18,6 +18,27 @@ jobs:
         run: cmake --build build --config Release
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+      - name: Verify DLL exports and size
+        shell: pwsh
+        run: |
+          $dll = "build/Release/ttw_dualscreen.dll"
+          if (-not (Test-Path $dll)) { throw "missing $dll" }
+          $size = (Get-Item $dll).Length
+          Write-Host "ttw_dualscreen.dll: $size bytes"
+          if ($size -le 50KB) { throw "DLL is only $size bytes (expected > 50 KB)" }
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC\*\bin\Hostx64\x86\dumpbin.exe" | Select-Object -First 1
+          if (-not $dumpbin) { throw "dumpbin not found under $vs" }
+          $out = & $dumpbin.FullName /exports /headers $dll | Out-String
+          $out -split "`n" | Select-String -Pattern "machine|NVSEPlugin_|DLL characteristics" | ForEach-Object { Write-Host $_.Line.Trim() }
+          if ($out -notmatch "14C machine \(x86\)") { throw "DLL is not x86" }
+          foreach ($name in "NVSEPlugin_Query", "NVSEPlugin_Load") {
+            # an exports-table row: ordinal, hint, RVA, then exactly the undecorated name
+            if ($out -notmatch "(?m)^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]{8}\s+$name\s*$") { throw "export $name missing" }
+          }
+          $deps = & $dumpbin.FullName /dependents $dll | Out-String
+          Write-Host $deps
+          if ($deps -match "(?i)vcruntime|msvcp|ucrtbase") { throw "DLL depends on the dynamic CRT; expected /MT" }
       - name: Package
         shell: pwsh
         run: |
@@ -80,5 +101,5 @@ jobs:
 
             Follow the device checklist: https://github.com/TristanAdams03/ttw-dualscreen/blob/${{ github.ref_name }}/docs/spike/CHECKLIST.md
 
-            - `TTWDualScreen-Plugin-${{ github.ref_name }}.zip`: unzip into the TTW game folder.
+            - `TTWDualScreen-Plugin-${{ github.ref_name }}.zip`: copy the zip's `Data` folder into the game folder (merge).
             - `TTWDualScreen-${{ github.ref_name }}.apk`: install on the Thor.
