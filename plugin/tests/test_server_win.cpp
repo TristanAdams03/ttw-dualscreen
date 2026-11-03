@@ -15,7 +15,9 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <mutex>
 #include <thread>
+#include <vector>
 
 #include "server/ws_server.h"
 
@@ -410,4 +412,33 @@ TEST_CASE("server_output_hard_cap") {
     TestClient fresh(r.srv.port());
     REQUIRE(fresh.handshake());
     CHECK(fresh.pingPong("alive"));
+}
+
+TEST_CASE("server_set_info_and_event_log") {
+    Wsa wsa;
+    server::WsServer srv;
+    std::mutex mx;
+    std::vector<std::string> events;
+    srv.setEventLog([&](const std::string& e) {
+        std::lock_guard<std::mutex> lk(mx);
+        events.push_back(e);
+    });
+    REQUIRE(srv.start("127.0.0.1", 0, testInfo()));
+    auto info = testInfo();
+    info.pluginVersion = "9.9.9-updated";
+    info.ttw = true;
+    srv.setInfo(info);
+    {
+        TestClient c(srv.port());
+        REQUIRE(c.handshake());
+        REQUIRE(c.sendFrame(0x1, fixture("hello.json")));
+        std::string text;
+        REQUIRE(c.expect(0x1, text));
+        CHECK(text.find("9.9.9-updated") != std::string::npos);
+        CHECK(text.find("\"ttw\":true") != std::string::npos);
+    }
+    srv.stop();
+    std::lock_guard<std::mutex> lk(mx);
+    REQUIRE(!events.empty());
+    CHECK(events[0] == "client connected (1 open)");
 }

@@ -3,11 +3,18 @@
 
 struct FakeGame : ttwds::proto::IGame {
     bool loaded = true;
-    int equipCalls = 0, dumpCalls = 0;
+    bool ttw = false;  // TTW absent by default: the TTW globals read as null
+    int equipCalls = 0, dumpCalls = 0, snapshotCalls = 0;
     bool saveLoaded() override { return loaded; }
     ttwds::proto::SpikeSnapshot snapshot(int64_t frame, int64_t ms) override {
+        ++snapshotCalls;
         ttwds::proto::SpikeSnapshot s;
         s.frame = frame; s.ms = ms; s.saveLoaded = loaded;
+        if (loaded) {
+            s.hp = 245.0f; s.hpMax = 280.0f; s.hardcore = false; s.interior = false;
+            s.worldspace = "WastelandNV"; s.cell = "Goodsprings";
+            if (ttw) { s.inDC = 0; s.inNV = 1; }
+        }
         return s;
     }
     ttwds::proto::CommandResult equipFirstWeapon() override {

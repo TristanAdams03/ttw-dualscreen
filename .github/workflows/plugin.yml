@@ -15,13 +15,38 @@ jobs:
         run: cmake --build build --config Release
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+      - name: Verify DLL exports and size
+        shell: pwsh
+        run: |
+          $dll = "build/Release/ttw_dualscreen.dll"
+          if (-not (Test-Path $dll)) { throw "missing $dll" }
+          $size = (Get-Item $dll).Length
+          Write-Host "ttw_dualscreen.dll: $size bytes"
+          if ($size -le 50KB) { throw "DLL is only $size bytes (expected > 50 KB)" }
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC\*\bin\Hostx64\x86\dumpbin.exe" | Select-Object -First 1
+          if (-not $dumpbin) { throw "dumpbin not found under $vs" }
+          $out = & $dumpbin.FullName /exports /headers $dll | Out-String
+          $out -split "`n" | Select-String -Pattern "machine|NVSEPlugin_|DLL characteristics" | ForEach-Object { Write-Host $_.Line.Trim() }
+          if ($out -notmatch "14C machine \(x86\)") { throw "DLL is not x86" }
+          foreach ($name in "NVSEPlugin_Query", "NVSEPlugin_Load") {
+            if ($out -notmatch "\b$name\b") { throw "export $name missing" }
+          }
+          $deps = & $dumpbin.FullName /dependents $dll | Out-String
+          Write-Host $deps
+          if ($deps -match "(?i)vcruntime|msvcp|ucrtbase") { throw "DLL depends on the dynamic CRT; expected /MT" }
+      - name: Stage artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item build/Release/ttw_dualscreen.dll, plugin/ttw_dualscreen.ini dist/
       - uses: actions/upload-artifact@v4
         with:
           name: ttw_dualscreen-dll
           path: |
-            build/Release/ttw_dualscreen.dll
-            plugin/ttw_dualscreen.ini
-          if-no-files-found: ignore  # the DLL target arrives with the xNVSE entry point
+            dist/ttw_dualscreen.dll
+            dist/ttw_dualscreen.ini
+          if-no-files-found: error
 
   linux:
     runs-on: ubuntu-latest

@@ -108,7 +108,7 @@ bool WsServer::start(const std::string& bind, uint16_t port, proto::ServerInfo i
         return false;
     }
     listen_ = static_cast<uintptr_t>(ls);
-    info_ = std::move(info);
+    setInfo(std::move(info));
     stop_ = false;
     port_ = ntohs(sa.sin_port);
     thread_ = std::thread([this] { run(); });
@@ -159,6 +159,13 @@ void WsServer::sendToAll(std::string json) {
         while (c->queue.size() > kMaxQueuedFrames) c->queue.pop_front();
     }
 }
+
+void WsServer::setInfo(proto::ServerInfo info) {
+    std::lock_guard<std::mutex> lk(infoMx_);
+    info_ = std::move(info);
+}
+
+void WsServer::setEventLog(std::function<void(const std::string&)> fn) { eventLog_ = std::move(fn); }
 
 bool WsServer::hasSpikeSubscriber(int& rateHz) const {
     std::lock_guard<std::mutex> lk(clientsMx_);
@@ -215,7 +222,12 @@ void WsServer::handleText(Client& c, const std::string& text) {
         std::lock_guard<std::mutex> lk(clientsMx_);
         sub = c.sub;
     }
-    proto::Inbound in = proto::classify(text, info_, sub);
+    proto::ServerInfo info;
+    {
+        std::lock_guard<std::mutex> lk(infoMx_);
+        info = info_;
+    }
+    proto::Inbound in = proto::classify(text, info, sub);
     {
         std::lock_guard<std::mutex> lk(clientsMx_);
         c.sub = sub;
@@ -322,10 +334,13 @@ void WsServer::handleReadable(Client& c) {
         }
         c.in.erase(0, end + 4);
         c.out += *resp;
+        size_t open = 0;
         {
             std::lock_guard<std::mutex> lk(clientsMx_);
             c.open = true;
+            for (const auto& o : clients_) open += o->open ? 1 : 0;
         }
+        if (eventLog_) eventLog_("client connected (" + std::to_string(open) + " open)");
     }
     handleFrames(c);
 }

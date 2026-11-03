@@ -4,6 +4,13 @@ Licensed under GPL-3.0-or-later (see LICENSE). No Bethesda or TTW assets are inc
 Third-party components:
 - nlohmann/json (MIT) - https://github.com/nlohmann/json
 - doctest (MIT) - https://github.com/doctest/doctest
-- xNVSE headers - https://github.com/xNVSE/NVSE
+- xNVSE (tag 6.4.9) headers and the example plugin's minimal source set, compiled into
+  ttw_dualscreen.dll as every xNVSE plugin does - https://github.com/xNVSE/NVSE
+  (the repository ships no LICENSE file)
+- JIP LN NVSE (GPL-3.0) - engine offsets/addresses used as facts, cited in
+  plugin/src/game/*.cpp (PlayerCharacter +0x604/+0x7BC, SystemColorManager 0x11D8A88);
+  no code copied - https://github.com/jazzisparis/JIP-LN-NVSE
+- JohnnyGuitar NVSE (LGPL-2.1) - engine address SystemColorManager::GetColor 0x7190A0,
+  cited in plugin/src/game/readers.cpp; no code copied - https://github.com/carxt/JohnnyGuitarNVSE
 - NewVegasWebMonitor (MIT) - reference only
 - SkyrimWebSocket (MIT) - reference only

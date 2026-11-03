@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -42,6 +43,12 @@ public:
     void sendToAll(std::string json);  // enqueue a text frame for every handshaken client
     bool hasSpikeSubscriber(int& rateHz) const;  // max rateHz among spike subscribers
 
+    // Replaces what `welcome` reports (e.g. ttw is only known at DeferredInit). Any thread.
+    void setInfo(proto::ServerInfo info);
+    // Network-thread events ("client connected", ...). Set before start(); the callback runs
+    // on the network thread and must not touch game memory.
+    void setEventLog(std::function<void(const std::string&)> fn);
+
     struct Client;  // network-thread state + shared queue/subscription (see .cpp)
 
 private:
@@ -53,7 +60,9 @@ private:
     void flushQueue(Client& c);
     bool flushOut(Client& c);
 
+    mutable std::mutex infoMx_;
     proto::ServerInfo info_;
+    std::function<void(const std::string&)> eventLog_;
     std::atomic<bool> stop_{false};
     std::atomic<uint16_t> port_{0};
     std::thread thread_;
