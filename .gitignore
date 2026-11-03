@@ -7,3 +7,5 @@ local.properties
 .gradle/
 .idea/
 out/
+plugin/b/
+plugin/build*/
