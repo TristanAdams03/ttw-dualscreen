@@ -1,0 +1,9 @@
+TTW DualScreen - Copyright (C) 2026 the TTW DualScreen authors
+Licensed under GPL-3.0-or-later (see LICENSE). No Bethesda or TTW assets are included.
+
+Third-party components:
+- nlohmann/json (MIT) - https://github.com/nlohmann/json
+- doctest (MIT) - https://github.com/doctest/doctest
+- xNVSE headers - https://github.com/xNVSE/NVSE
+- NewVegasWebMonitor (MIT) - reference only
+- SkyrimWebSocket (MIT) - reference only
