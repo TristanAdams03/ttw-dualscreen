@@ -21,7 +21,10 @@ FetchContent_Declare(nlohmann_json
   URL_HASH SHA256=d6c65aca6b1ed68e7a182f4757257b107ae403032760ed6ef121c9d55e81757d
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
   SYSTEM)
+# doctest 2.4.11 declares cmake_minimum_required(3.0); CMake 4 refuses that without this.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 FetchContent_MakeAvailable(doctest nlohmann_json)
+unset(CMAKE_POLICY_VERSION_MINIMUM)
 
 # Warnings are errors on our own targets only (third-party headers are SYSTEM).
 function(ttwds_warnings target)
