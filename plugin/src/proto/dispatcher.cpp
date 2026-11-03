@@ -19,16 +19,7 @@ static Inbound classifyParsed(const json& j, const ServerInfo& info, Subscriptio
     if (it == j.end() || !it->is_string()) return netReply(error_json("unknown type"));
     const std::string type = it->get<std::string>();
 
-    if (type == "hello") {
-        json w = {{"type", "welcome"},
-                  {"plugin", info.pluginVersion},
-                  {"protocol", 0},
-                  {"game", info.game},
-                  {"xnvse", info.xnvse},
-                  {"ttw", info.ttw},
-                  {"features", json::array({"spike"})}};
-        return netReply(w.dump(-1, ' ', false, json::error_handler_t::replace));
-    }
+    if (type == "hello") return netReply(welcome_json(info));
     if (type == "ping") {
         json t = j.value("t", json(0));
         if (!t.is_number_integer()) t = 0;

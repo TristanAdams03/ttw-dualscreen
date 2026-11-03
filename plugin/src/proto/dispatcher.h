@@ -2,6 +2,7 @@
 #include <string>
 #include <string_view>
 #include "proto/game_iface.h"
+#include "proto/messages.h"
 
 namespace ttwds::proto {
 
@@ -17,13 +18,6 @@ struct Inbound {
 struct Subscription {
     bool spike = false;
     int rateHz = 5;
-};
-
-struct ServerInfo {
-    std::string pluginVersion;
-    std::string game;
-    std::string xnvse;
-    bool ttw = false;
 };
 
 // Never throws. Parse failure -> error "invalid json"; unknown type -> error "unknown type".

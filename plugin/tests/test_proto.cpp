@@ -35,6 +35,19 @@ TEST_CASE("hello -> welcome matching fixture") {
     CHECK(got["protocol"] == 0);
 }
 
+TEST_CASE("welcome_json matches fixture and reflects ttw") {
+    CHECK(json::parse(welcome_json(info())) == fixture("welcome.json"));
+    ServerInfo early = info();
+    early.ttw = false;
+    json got = json::parse(welcome_json(early));
+    CHECK(got["type"] == "welcome");
+    CHECK(got["ttw"] == false);
+    CHECK(got["plugin"] == "0.0.1-spike");
+    // classify(hello) and welcome_json must agree byte for byte.
+    Subscription sub;
+    CHECK(classify(R"({"type":"hello"})", early, sub).reply == welcome_json(early));
+}
+
 TEST_CASE("ping -> pong") {
     Subscription sub;
     auto in = classify(R"({"type":"ping","t":5})", info(), sub);

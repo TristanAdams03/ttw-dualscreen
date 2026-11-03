@@ -241,7 +241,7 @@ void WsServer::handleText(Client& c, const std::string& text) {
         }
         if (!full) return;
         in.reply = R"({"type":"result","id":)" + nlohmann::json(in.commandId).dump() +
-                   R"(,"ok":false,"error":"busy"})";
+                   R"(,"ok":false,"error":"busy","data":null})";
     }
     if (in.reply.empty()) return;  // e.g. subscribe: no ack
     c.out += net::ws_encode(kOpText, in.reply);

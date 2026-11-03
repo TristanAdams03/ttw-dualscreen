@@ -13,6 +13,16 @@ static json opt(const std::optional<T>& v) {
     return v ? json(*v) : json(nullptr);
 }
 
+std::string welcome_json(const ServerInfo& info) {
+    return dump(json{{"type", "welcome"},
+                     {"plugin", info.pluginVersion},
+                     {"protocol", 0},
+                     {"game", info.game},
+                     {"xnvse", info.xnvse},
+                     {"ttw", info.ttw},
+                     {"features", json::array({"spike"})}});
+}
+
 std::string state_json(const SpikeSnapshot& s) {
     json colors = nullptr;
     if (s.colors) {

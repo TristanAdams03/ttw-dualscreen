@@ -19,6 +19,7 @@
 #include <thread>
 #include <vector>
 
+#include "proto/messages.h"
 #include "server/ws_server.h"
 
 using namespace ttwds;
@@ -441,4 +442,46 @@ TEST_CASE("server_set_info_and_event_log") {
     std::lock_guard<std::mutex> lk(mx);
     REQUIRE(!events.empty());
     CHECK(events[0] == "client connected (1 open)");
+}
+
+TEST_CASE("server_busy_reply_has_null_data") {
+    Running r;
+    TestClient c(r.srv.port());
+    REQUIRE(c.handshake());
+    // Nobody polls, so the queue fills; the next command gets an immediate busy result.
+    for (size_t i = 0; i <= server::WsServer::kMaxQueuedCommands; ++i)
+        REQUIRE(c.sendFrame(0x1, "{\"type\":\"command\",\"id\":\"b" + std::to_string(i) +
+                                     "\",\"name\":\"spike.dumpWorld\"}"));
+    std::string text;
+    REQUIRE(c.expect(0x1, text));
+    auto j = nlohmann::json::parse(text);
+    CHECK(j["type"] == "result");
+    CHECK(j["id"] == "b" + std::to_string(server::WsServer::kMaxQueuedCommands));
+    CHECK(j["ok"] == false);
+    CHECK(j["error"] == "busy");
+    REQUIRE(j.contains("data"));
+    CHECK(j["data"].is_null());
+}
+
+TEST_CASE("server_unsolicited_welcome_after_set_info") {
+    Wsa wsa;
+    server::WsServer srv;
+    auto info = testInfo();
+    info.ttw = false;
+    REQUIRE(srv.start("127.0.0.1", 0, info));
+    TestClient c(srv.port());
+    REQUIRE(c.handshake());
+    REQUIRE(c.sendFrame(0x1, fixture("hello.json")));
+    std::string text;
+    REQUIRE(c.expect(0x1, text));
+    CHECK(nlohmann::json::parse(text)["ttw"] == false);
+    // What on_deferred_init does once TTW is detected.
+    info.ttw = true;
+    srv.setInfo(info);
+    srv.sendToAll(proto::welcome_json(info));
+    REQUIRE(c.expect(0x1, text));
+    auto j = nlohmann::json::parse(text);
+    CHECK(j["type"] == "welcome");
+    CHECK(j["ttw"] == true);
+    srv.stop();
 }

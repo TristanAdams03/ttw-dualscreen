@@ -7,7 +7,8 @@
 // ServerInfo: the server starts at Load with ttw=false; whether TaleOfTwoWastelands.esm is
 // loaded is only known once the data handler is populated, so it is decided at DeferredInit
 // (first main-loop iteration) and pushed with WsServer::setInfo. A `hello` that arrives before
-// that (main menu not reached yet) reports ttw:false.
+// that (main menu not reached yet) reports ttw:false; DeferredInit then pushes an unsolicited
+// `welcome` with the final ServerInfo to every connected client.
 //
 // Shutdown: WsServer::stop() joins a thread, so it is never called from DllMain or a static
 // destructor (loader lock). It runs on kMessage_ExitGame / kMessage_ExitGame_Console (main
@@ -22,6 +23,7 @@
 #include "game/format.h"
 #include "game/log.h"
 #include "game/readers.h"
+#include "proto/messages.h"
 #include "proto/pump.h"
 #include "server/ws_server.h"
 
@@ -140,7 +142,11 @@ void on_deferred_init() {
     if (!g_game) return;
     const int idx = g_game->ttwModIndex();
     g_info.ttw = idx >= 0;
-    if (g_server) g_server->setInfo(g_info);
+    if (g_server) {
+        g_server->setInfo(g_info);
+        // Clients that said hello before DeferredInit got ttw:false; re-announce.
+        g_server->sendToAll(ttwds::proto::welcome_json(g_info));
+    }
     if (idx >= 0)
         g_log.info("DeferredInit: TaleOfTwoWastelands.esm loaded at index %02X", static_cast<unsigned>(idx));
     else
