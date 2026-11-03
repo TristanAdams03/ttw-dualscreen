@@ -1,0 +1,84 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  plugin:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S plugin -B build -A Win32
+      - name: Build
+        run: cmake --build build --config Release
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Package
+        shell: pwsh
+        run: |
+          $dll = "build/Release/ttw_dualscreen.dll"
+          if (-not (Test-Path $dll)) { throw "missing $dll" }
+          if ((Get-Item $dll).Length -le 50KB) { throw "DLL too small" }
+          $dir = "stage/Data/NVSE/Plugins"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Copy-Item $dll, plugin/ttw_dualscreen.ini $dir/
+          New-Item -ItemType Directory -Force out | Out-Null
+          Compress-Archive -Path stage/Data -DestinationPath "out/TTWDualScreen-Plugin-${{ github.ref_name }}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-plugin
+          path: out/*.zip
+          if-no-files-found: error
+
+  app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platforms;android-35 build-tools;35.0.0 platform-tools"
+      - name: Test and assemble
+        run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
+      - name: Rename APK
+        working-directory: .
+        run: |
+          mkdir -p out
+          cp app/app/build/outputs/apk/debug/app-debug.apk "out/TTWDualScreen-${{ github.ref_name }}.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-app
+          path: out/*.apk
+          if-no-files-found: error
+
+  publish:
+    needs: [plugin, app]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          files: assets/*
+          body: |
+            Spike pre-release. Not for general use.
+
+            Follow the device checklist: https://github.com/TristanAdams03/ttw-dualscreen/blob/m0-spike/docs/spike/CHECKLIST.md
+
+            - `TTWDualScreen-Plugin-${{ github.ref_name }}.zip`: unzip into the TTW game folder.
+            - `TTWDualScreen-${{ github.ref_name }}.apk`: install on the Thor.

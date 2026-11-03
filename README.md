@@ -5,6 +5,11 @@ companion display for Tale of Two Wastelands (Fallout: New Vegas).
 
 Status: milestone 0 spike.
 
+## Try the spike
+
+Download the latest pre-release: https://github.com/TristanAdams03/ttw-dualscreen/releases
+Then follow the [device checklist](docs/spike/CHECKLIST.md).
+
 Design: [docs/superpowers/specs/2026-11-03-ttw-dualscreen-design.md](docs/superpowers/specs/2026-11-03-ttw-dualscreen-design.md)
 
 Protocol: [protocol/PROTOCOL.md](protocol/PROTOCOL.md)
