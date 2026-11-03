@@ -6,10 +6,11 @@ DecodeStatus ws_decode(std::string& buf, WsFrame& out, size_t maxPayload) {
     const auto b0 = static_cast<uint8_t>(buf[0]);
     const auto b1 = static_cast<uint8_t>(buf[1]);
     const bool fin = (b0 & 0x80) != 0;
-    const uint8_t opcode = b0 & 0x0F;
+    const auto opcode = static_cast<uint8_t>(b0 & 0x0F);
+    if ((opcode >= 3 && opcode <= 7) || opcode >= 0xB) return DecodeStatus::ProtocolError;  // reserved
     if (b0 & 0x70) return DecodeStatus::ProtocolError;  // RSV bits, no extensions negotiated
     if (!(b1 & 0x80)) return DecodeStatus::ProtocolError;  // client frames must be masked
-    uint64_t len = b1 & 0x7F;
+    uint64_t len = static_cast<uint64_t>(b1 & 0x7F);
     if (opcode >= 8 && (!fin || len > 125)) return DecodeStatus::ProtocolError;
 
     size_t pos = 2;
@@ -41,19 +42,20 @@ DecodeStatus ws_decode(std::string& buf, WsFrame& out, size_t maxPayload) {
 }
 
 std::string ws_encode(uint8_t opcode, std::string_view payload) {
+    if (opcode >= 8 && payload.size() > 125) payload = payload.substr(0, 125);  // control frame limit
     std::string out;
     out.reserve(payload.size() + 10);
-    out.push_back(static_cast<char>(0x80 | (opcode & 0x0F)));
+    out.push_back(static_cast<char>(static_cast<uint8_t>(0x80 | (opcode & 0x0F))));
     const uint64_t n = payload.size();
     if (n < 126) {
-        out.push_back(static_cast<char>(n));
+        out.push_back(static_cast<char>(static_cast<uint8_t>(n)));
     } else if (n <= 0xFFFF) {
         out.push_back(126);
-        out.push_back(static_cast<char>(n >> 8));
-        out.push_back(static_cast<char>(n & 0xFF));
+        out.push_back(static_cast<char>(static_cast<uint8_t>(n >> 8)));
+        out.push_back(static_cast<char>(static_cast<uint8_t>(n & 0xFF)));
     } else {
         out.push_back(127);
-        for (int i = 7; i >= 0; --i) out.push_back(static_cast<char>((n >> (8 * i)) & 0xFF));
+        for (int i = 7; i >= 0; --i) out.push_back(static_cast<char>(static_cast<uint8_t>((n >> (8 * i)) & 0xFF)));
     }
     out.append(payload);
     return out;

@@ -29,12 +29,15 @@ std::string_view trim(std::string_view s) {
 }  // namespace
 
 std::optional<std::string> ws_accept_response(std::string_view req) {
+    // Must be a complete request (terminated header block).
+    if (req.find("\r\n\r\n") == std::string_view::npos) return std::nullopt;
     // Request line must be a GET.
     size_t eol = req.find('\n');
     if (eol == std::string_view::npos) return std::nullopt;
     if (req.substr(0, 4) != "GET ") return std::nullopt;
 
     bool upgrade = false;
+    bool hostOk = false;
     std::string_view key;
     size_t pos = eol + 1;
     while (pos < req.size()) {
@@ -49,11 +52,22 @@ std::optional<std::string> ws_accept_response(std::string_view req) {
         std::string_view value = trim(line.substr(colon + 1));
         if (iequals(name, "Upgrade")) {
             if (icontains(value, "websocket")) upgrade = true;
+        } else if (iequals(name, "Origin")) {
+            return std::nullopt;  // browsers send Origin; our client does not
+        } else if (iequals(name, "Host")) {
+            std::string_view h = value;
+            if (!h.empty() && h.front() == '[') {
+                hostOk = false;  // IPv6 literals are not accepted
+            } else {
+                size_t c = h.find(':');
+                if (c != std::string_view::npos) h = h.substr(0, c);
+                hostOk = iequals(h, "127.0.0.1") || iequals(h, "localhost");
+            }
         } else if (iequals(name, "Sec-WebSocket-Key")) {
             key = value;
         }
     }
-    if (!upgrade || key.empty()) return std::nullopt;
+    if (!upgrade || !hostOk || key.empty()) return std::nullopt;
 
     std::string combined(key);
     combined += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
