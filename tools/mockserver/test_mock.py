@@ -90,7 +90,12 @@ async def test_commands_ok_and_unknown():
         r = await rpc(ws, {"type": "command", "id": "c1", "name": "spike.equipFirstWeapon", "args": {}})
         assert r["ok"] is True and r["error"] is None and r["data"]["formId"] == "0001A6B9"
         r = await rpc(ws, {"type": "command", "id": "c2", "name": "spike.dumpWorld", "args": {}})
-        assert r["ok"] is True and r["data"]["worldspace"] == "Wasteland"
+        assert r["ok"] is True and r["error"] is None
+        d = r["data"]
+        assert set(d) == {"worldspace", "parentWorldspace", "cell", "interior", "pos"}
+        assert d["worldspace"] == "Wasteland" and d["parentWorldspace"] is None
+        assert d["cell"] == "Megaton" and d["interior"] is False
+        assert isinstance(d["pos"], list) and len(d["pos"]) == 3
         r = await rpc(ws, {"type": "command", "id": "c3", "name": "nope", "args": {}})
         assert r["ok"] is False and r["error"] == "unknown command" and r["id"] == "c3"
 

@@ -9,9 +9,12 @@ from websockets.asyncio.server import serve as ws_serve
 from websockets.exceptions import ConnectionClosed
 
 WORLDS = {
-    "dc": dict(dc=1, nv=0, worldspace="Wasteland", cell="Megaton", ttw=True),
-    "nv": dict(dc=0, nv=1, worldspace="WastelandNV", cell="Goodsprings", ttw=True),
-    "none": dict(dc=None, nv=None, worldspace="WastelandNV", cell="Goodsprings", ttw=False),
+    "dc": dict(dc=1, nv=0, worldspace="Wasteland", cell="Megaton", ttw=True,
+               pos=[-4113.5, 5291.0, 1024.25]),
+    "nv": dict(dc=0, nv=1, worldspace="WastelandNV", cell="Goodsprings", ttw=True,
+               pos=[-70160.0, 2872.5, 8640.0]),
+    "none": dict(dc=None, nv=None, worldspace="WastelandNV", cell="Goodsprings", ttw=False,
+                 pos=[-70160.0, 2872.5, 8640.0]),
 }
 COLORS = {"hudMain": [255, 182, 66], "hudAlt": [255, 67, 42], "terminal": [33, 231, 121],
           "pipboy": [255, 182, 66], "menu": [255, 182, 66]}
@@ -63,8 +66,9 @@ class Mock:
         if name == "spike.equipFirstWeapon":
             return res(True, data={"formId": "0001A6B9", "name": "Lincoln's Repeater"})
         w = self.world
-        return res(True, data={"bInDCWasteland": w["dc"], "bInNVWasteland": w["nv"],
-                               "worldspace": w["worldspace"], "cell": w["cell"]})
+        # Same shape as the plugin (plugin/src/game/commands.cpp NvseGame::dumpWorld).
+        return res(True, data={"worldspace": w["worldspace"], "parentWorldspace": None,
+                               "cell": w["cell"], "interior": False, "pos": list(w["pos"])})
 
     async def stream(self, ws, rate):
         try:
