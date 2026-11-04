@@ -127,6 +127,9 @@ Only New Vegas gets copied to the Thor. Fallout 3 is needed on the PC only while
 ### Step 6: Deploy TTW in Vortex
 1. Restart Vortex and accept the "external changes" prompt.
 2. Deploy, then enable all TTW plugins `[06:43][06:56]`.
+   - Vortex does **not** turn the Fallout 3 plugins on by itself. On the **Plugins** tab, check that each of these says **Enabled**: `Fallout3.esm`, `Anchorage.esm`, `ThePitt.esm`, `BrokenSteel.esm`, `PointLookout.esm`, `Zeta.esm`, `TaleOfTwoWastelands.esm` and `YUPTTW.esm`.
+   - If `TaleOfTwoWastelands.esm` is disabled, the game boots as plain New Vegas.
+   - Leave `FalloutNV_lang.esp` disabled.
 3. Install **YUPTTW 13.9.1** from the same [mod.pub files page](https://mod.pub/ttw/133/files) as a separate mod, loading **after** TTW. YUPTTW is TTW's own version of the Yukichigai Unofficial Patch.
 4. Optional: add the "Updated OGG Vorbis Files" from mod.pub to the New Vegas root folder.
 
